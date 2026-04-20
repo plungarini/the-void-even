@@ -1,8 +1,14 @@
 /**
- * The single HUD screen — "the void". One full-screen text container
- * shows the running deaths count since the last tap, alongside a memento
- * mori header. Clicks reset the counter; double-clicks exit the app (root
- * page submission requirement).
+ * The single HUD screen for The Void.
+ *
+ * Layout mirrors smokeless's ROOT_LAYOUT:
+ *   0  shield  — invisible full-screen overlay, isEventCapture:1
+ *   1  header  — top bar (clock + app name)
+ *   2  body    — bordered main content (counter + elapsed)
+ *   3  footer  — bottom hint bar
+ *
+ * Single click resets the counter. Double-click exits the app (required on
+ * root page per Even Hub submission rules).
  */
 
 import {
@@ -11,26 +17,82 @@ import {
 	type EvenHubEvent,
 } from '@evenrealities/even_hub_sdk';
 import { appStore, deathsSinceTap } from '../app/store';
-import { HUD_HEIGHT, HUD_WIDTH } from './constants';
+import { HUD_BORDER_RADIUS, HUD_HEIGHT, HUD_WIDTH } from './constants';
 import { scheduleRender } from './render-loop';
 import type { HudLayoutDescriptor } from './types';
+
+// ── Layout ────────────────────────────────────────────────────────────────────
 
 const LAYOUT: HudLayoutDescriptor = {
 	key: 'void.v1',
 	textDescriptors: [
+		// Shield: zero-width, full-height invisible overlay — sole event capture
 		{
-			containerID: 1,
-			containerName: 'void',
+			containerID: 0,
+			containerName: 'shield',
 			xPosition: 0,
 			yPosition: 0,
-			width: HUD_WIDTH,
+			width: 0,
 			height: HUD_HEIGHT,
-			paddingLength: 24,
-			borderWidth: 0,
 			isEventCapture: 1,
+		},
+		// Header: top-left clock + app name
+		{
+			containerID: 1,
+			containerName: 'header',
+			xPosition: 12,
+			yPosition: 0,
+			width: 240,
+			height: 40,
+			paddingLength: 4,
+		},
+		// Body: main content — counter, elapsed, label
+		{
+			containerID: 2,
+			containerName: 'body',
+			xPosition: 0,
+			yPosition: 37,
+			width: HUD_WIDTH,
+			height: 213,
+			paddingLength: 15,
+			borderWidth: 1,
+			borderColor: 13,
+			borderRadius: HUD_BORDER_RADIUS,
+			isEventCapture: 0,
+		},
+		// Footer: bottom hint
+		{
+			containerID: 3,
+			containerName: 'footer',
+			xPosition: 13,
+			yPosition: 251,
+			width: 350,
+			height: 35,
+			paddingLength: 4,
 		},
 	],
 };
+
+// ── Formatting helpers ────────────────────────────────────────────────────────
+
+// body inner width = 576 - 2*(15+1) = 544 px
+// We use character-based centering here (no pretext dep) because the void
+// display is simple enough — numbers + short labels in the default font.
+const BODY_CHAR_WIDTH = 44; // approximate chars that fit per line at default size
+
+function padCenter(text: string, width: number = BODY_CHAR_WIDTH): string {
+	if (text.length >= width) return text;
+	const totalPad = width - text.length;
+	const left = Math.floor(totalPad / 2);
+	return ' '.repeat(left) + text;
+}
+
+function row(label: string, value: string): string {
+	// "• Label         Value" filling ~BODY_CHAR_WIDTH
+	const entry = `• ${label}`;
+	const gap = Math.max(1, BODY_CHAR_WIDTH - entry.length - value.length);
+	return `${entry}${' '.repeat(gap)}${value}`;
+}
 
 function formatElapsed(ms: number): string {
 	const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -40,9 +102,11 @@ function formatElapsed(ms: number): string {
 	return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function formatNumber(value: number): string {
-	return value.toLocaleString('en-US');
+function formatHeaderTime(now: Date): string {
+	return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 }
+
+// ── View ──────────────────────────────────────────────────────────────────────
 
 class VoidView {
 	private bridge: EvenAppBridge | null = null;
@@ -60,32 +124,36 @@ class VoidView {
 		const state = appStore.getState();
 		const deaths = deathsSinceTap(now);
 		const elapsed = formatElapsed(now - state.tapTimestamp);
+		const deathStr = deaths.toLocaleString('en-US');
+		const nowDate = new Date(now);
+
+		const header = `${formatHeaderTime(nowDate)}   •   The Void`;
 
 		const body = [
 			'',
-			'         — The Void —',
+			padCenter('— memento mori —'),
 			'',
-			`  Since your last tap: ${elapsed}`,
+			row('Elapsed', elapsed),
+			row('Souls entered the void', deathStr),
 			'',
-			`      ${formatNumber(deaths)} souls`,
-			'      have entered the void.',
-			'',
-			'        tap to reset',
+			padCenter('╭──  tap to reset  ──╮'),
 		].join('\n');
 
-		return { void: body };
+		const footer = `[ Click ] reset   [ 2× click ] exit`;
+
+		return { shield: ' ', header, body, footer };
 	}
 
 	handleEvent(event: EvenHubEvent): void {
 		const type = event.textEvent?.eventType ?? event.sysEvent?.eventType;
 
-		// DOUBLE_CLICK first — firmware emits a phantom CLICK right after it,
-		// and on the root page double-click must exit the app (submission rule).
+		// DOUBLE_CLICK wins — check before CLICK so the phantom click that
+		// follows a double-tap doesn't accidentally reset the counter.
 		if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
 			void this.exitApp();
 			return;
 		}
-		// CLICK_EVENT = 0, which the bridge normalises to `undefined`.
+		// CLICK_EVENT = 0, normalised to `undefined` by the bridge.
 		if (type === OsEventTypeList.CLICK_EVENT || type === undefined) {
 			appStore.tap();
 			scheduleRender();
@@ -95,7 +163,7 @@ class VoidView {
 	private async exitApp(): Promise<void> {
 		if (!this.bridge) return;
 		try {
-			// Mode 1 = show the host exit dialog (required on the root page).
+			// Mode 1 = show the host exit dialog (required on root page).
 			await this.bridge.shutDownPageContainer(1);
 		} catch (error) {
 			console.error('[VoidView] shutDownPageContainer threw', error);
