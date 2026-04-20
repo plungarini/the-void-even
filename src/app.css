@@ -1,0 +1,100 @@
+:root {
+	color-scheme: dark;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	margin: 0;
+	padding: 0;
+	min-height: 100vh;
+	background: #000;
+	color: #e8e8e8;
+}
+
+body {
+	-webkit-font-smoothing: antialiased;
+	-webkit-tap-highlight-color: transparent;
+	user-select: none;
+}
+
+.void-shell {
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 2rem 1.5rem;
+	gap: 2rem;
+	text-align: center;
+}
+
+.void-title {
+	font-size: 1rem;
+	letter-spacing: 0.3em;
+	text-transform: uppercase;
+	color: #666;
+	margin: 0;
+}
+
+.void-elapsed {
+	font-variant-numeric: tabular-nums;
+	font-size: 1.1rem;
+	color: #888;
+	margin: 0;
+}
+
+.void-count {
+	font-size: clamp(2.5rem, 12vw, 5rem);
+	font-weight: 200;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+	margin: 0;
+	color: #fff;
+}
+
+.void-caption {
+	max-width: 22rem;
+	font-size: 1rem;
+	line-height: 1.5;
+	color: #888;
+	margin: 0;
+}
+
+.void-source {
+	font-size: 0.75rem;
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+	color: #444;
+	margin: 0;
+}
+
+.void-tap {
+	appearance: none;
+	background: transparent;
+	color: #e8e8e8;
+	border: 1px solid #333;
+	border-radius: 999px;
+	padding: 0.9rem 2.4rem;
+	font-size: 0.95rem;
+	letter-spacing: 0.2em;
+	text-transform: uppercase;
+	cursor: pointer;
+	transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.void-tap:hover,
+.void-tap:focus-visible {
+	border-color: #aaa;
+	color: #fff;
+	outline: none;
+}
+
+.void-tap:active {
+	border-color: #fff;
+}
