@@ -17,6 +17,7 @@ import {
 	TextContainerUpgrade,
 	type EvenAppBridge,
 } from '@evenrealities/even_hub_sdk';
+
 import { HUD_CONTENT_CHAR_LIMIT } from './constants';
 import type { HudLayoutDescriptor, HudRenderState } from './types';
 
@@ -33,8 +34,9 @@ function instantiateLayout(
 	layout: HudLayoutDescriptor,
 	textContents: Record<string, string>,
 ) {
+	const imageCount = layout.imageObject?.length ?? 0;
 	return {
-		containerTotalNum: layout.textDescriptors.length,
+		containerTotalNum: layout.textDescriptors.length + imageCount,
 		textObject: layout.textDescriptors.map(
 			(d) =>
 				new TextContainerProperty({
@@ -42,6 +44,7 @@ function instantiateLayout(
 					content: truncate(textContents[d.containerName] ?? ' ', HUD_CONTENT_CHAR_LIMIT),
 				}),
 		),
+		imageObject: layout.imageObject,
 	};
 }
 

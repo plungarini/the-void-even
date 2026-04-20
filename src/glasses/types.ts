@@ -1,7 +1,8 @@
 /**
- * Layout + render state types for the glasses HUD. Mirrors the shape used
- * in `smokeless` so the session wrapper can consume either verbatim.
+ * Layout + render state types for the glasses HUD.
  */
+
+import type { ImageContainerProperty } from '@evenrealities/even_hub_sdk';
 
 export interface HudTextDescriptor {
 	containerID: number;
@@ -20,6 +21,7 @@ export interface HudTextDescriptor {
 export interface HudLayoutDescriptor {
 	key: string;
 	textDescriptors: HudTextDescriptor[];
+	imageObject?: ImageContainerProperty[];
 }
 
 export interface HudRenderState {

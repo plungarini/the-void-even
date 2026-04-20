@@ -11,8 +11,10 @@
 // fails — better a mildly stale figure than a fabricated one.
 export const FALLBACK_DEATHS_PER_SEC = 2.04;
 
+export const MAX_DEATHS = 9999999999999;
+
 export interface AppState {
-	tapTimestamp: number;
+	tapTimestamp?: number;
 	deathsPerSec: number;
 	rateSource: 'fallback' | 'worldbank';
 }
@@ -20,7 +22,7 @@ export interface AppState {
 type Listener = () => void;
 
 let state: AppState = {
-	tapTimestamp: Date.now(),
+	tapTimestamp: undefined,
 	deathsPerSec: FALLBACK_DEATHS_PER_SEC,
 	rateSource: 'fallback',
 };
@@ -56,6 +58,14 @@ export const appStore = {
 		notify();
 	},
 
+	/** Restore a previously saved tap timestamp (e.g. from bridge localStorage).
+	 * Does NOT fire a save — the caller owns persistence. */
+	setTapTimestamp(ms: number): void {
+		if (!Number.isFinite(ms) || ms <= 0) return;
+		state = { ...state, tapTimestamp: ms };
+		notify();
+	},
+
 	/** Install the resolved death rate once the World Bank fetch completes. */
 	setDeathsPerSec(deathsPerSec: number, source: AppState['rateSource']): void {
 		if (!Number.isFinite(deathsPerSec) || deathsPerSec <= 0) return;
@@ -65,7 +75,9 @@ export const appStore = {
 };
 
 /** Compute deaths accrued since the last tap. */
-export function deathsSinceTap(now: number = Date.now()): number {
+export function deathsSinceTap(now: number = Date.now()): string {
+	if (!state.tapTimestamp) return '--';
 	const elapsedSec = Math.max(0, (now - state.tapTimestamp) / 1000);
-	return Math.floor(elapsedSec * state.deathsPerSec);
+	const tot = Math.floor(elapsedSec * state.deathsPerSec);
+	return tot > MAX_DEATHS ? 'too much' : tot.toLocaleString('en-US');
 }

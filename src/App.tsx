@@ -22,14 +22,14 @@ export default function App() {
 		return () => clearInterval(id);
 	}, []);
 
-	const elapsedMs = now - state.tapTimestamp;
+	const elapsedMs = state.tapTimestamp ? now - state.tapTimestamp : 0;
 	const deaths = deathsSinceTap(now);
 
 	return (
 		<main className="void-shell">
 			<p className="void-title">The Void</p>
-			<p className="void-elapsed">Since your last tap · {formatElapsed(elapsedMs)}</p>
-			<p className="void-count">{deaths.toLocaleString('en-US')}</p>
+			{state.tapTimestamp && <p className="void-elapsed">Since your last tap · {formatElapsed(elapsedMs)}</p>}
+			<p className="void-count">{deaths}</p>
 			<p className="void-caption">
 				souls have entered the void.
 				<br />
