@@ -18,12 +18,15 @@ import { startDeathRateBootstrap } from './services/death-rate';
 const STORAGE_KEY_TAP = 'thevoid.tapTimestamp';
 
 async function main(): Promise<void> {
+	console.log('[GlassesMain] starting up');
 	// Start World Bank fetch early — fallback rate is in the store already.
 	startDeathRateBootstrap();
 
 	let bridge;
 	try {
+		console.log('[GlassesMain] waiting for Even bridge...');
 		bridge = await waitForEvenAppBridge();
+		console.log('[GlassesMain] bridge acquired');
 	} catch (error) {
 		console.error('[GlassesMain] bridge unavailable', error);
 		return;
@@ -45,11 +48,14 @@ async function main(): Promise<void> {
 	}
 
 	voidView.attachBridge(bridge);
+	console.log('[GlassesMain] bridge attached to voidView');
 	initHudImages(bridge);
+	console.log('[GlassesMain] hud images initialised');
 
 	const session = new HudSession(bridge);
 	initRenderLoop(session);
 	initEventDispatcher(bridge);
+	console.log('[GlassesMain] render loop + event dispatcher ready');
 
 	// ── Persist tap timestamp whenever it changes ─────────────────────────────
 	// Subscribe to store; fire-and-forget save on every tap event.
@@ -74,7 +80,9 @@ async function main(): Promise<void> {
 	startTick();
 
 	// First paint.
+	console.log('[GlassesMain] triggering first render');
 	scheduleRender();
+	console.log('[GlassesMain] startup complete');
 }
 
 void main().catch((error) => {
