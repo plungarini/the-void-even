@@ -1,19 +1,19 @@
 {
-  "package_id": "com.plungarini.thevoid",
-  "name": "The Void",
-  "version": "0.1.0",
-  "edition": "202601",
-  "entrypoint": "index.html",
-  "description": "A memento mori counter — every second, the world loses souls. Tap to reset; witness the void fill again.",
-  "author": "plungarini",
-  "permissions": [
-    {
-      "name": "network",
-      "desc": "The Void fetches the current global death rate from the World Bank open data API."
-    }
-  ],
-  "supported_languages": ["en"],
-  "tagline": "Memento mori, one tap at a time.",
-  "min_app_version": "2.1.1",
-  "min_sdk_version": "0.0.9"
+	"author": "plungarini",
+	"description": "A memento mori counter — every second, the world loses souls. Tap to reset; witness the void fill again.",
+	"edition": "202601",
+	"entrypoint": "index.html",
+	"min_app_version": "2.1.1",
+	"min_sdk_version": "0.0.9",
+	"name": "The Void",
+	"package_id": "com.plungarini.thevoid",
+	"permissions": [
+		{
+			"desc": "The Void fetches the current global death rate from the World Bank open data API.",
+			"name": "network"
+		}
+	],
+	"supported_languages": ["en"],
+	"tagline": "Watch absence accumulate.",
+	"version": "0.1.0"
 }
