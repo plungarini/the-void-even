@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { appStore, deathsSinceTap } from './app/store';
+import { DebugPanel } from './debug/DebugPanel';
 
 function useStore() {
 	return useSyncExternalStore(appStore.subscribe, appStore.getState, appStore.getState);
@@ -26,21 +27,25 @@ export default function App() {
 	const deaths = deathsSinceTap(now);
 
 	return (
-		<main className="void-shell">
-			<p className="void-title">The Void</p>
-			{state.tapTimestamp && <p className="void-elapsed">Since your last tap · {formatElapsed(elapsedMs)}</p>}
-			<p className="void-count">{deaths}</p>
-			<p className="void-caption">
-				souls have entered the void.
-				<br />
-				Memento mori.
-			</p>
-			<button className="void-tap" type="button" onClick={() => appStore.tap()}>
-				Tap to reset
-			</button>
-			<p className="void-source">
-				rate · {state.rateSource === 'worldbank' ? 'world bank open data' : 'cached fallback'}
-			</p>
-		</main>
+		<>
+			<main className="void-shell">
+				<p className="void-title">The Void</p>
+				{state.tapTimestamp && <p className="void-elapsed">Since your last tap · {formatElapsed(elapsedMs)}</p>}
+				<p className="void-count">{deaths}</p>
+				<p className="void-caption">
+					souls have entered the void.
+					<br />
+					Memento mori.
+				</p>
+				<button className="void-tap" type="button" onClick={() => appStore.tap()}>
+					Tap to reset
+				</button>
+				<p className="void-source">
+					rate · {state.rateSource === 'worldbank' ? 'world bank open data' : 'cached fallback'}
+				</p>
+			</main>
+			{/* TEMP: debug panel — remove before release */}
+			<DebugPanel />
+		</>
 	);
 }
