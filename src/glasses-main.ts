@@ -33,49 +33,54 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Restore persisted tap timestamp
+  // ── Persistence Recovery ──────────────────────────────────────────────────
+  let initialSavedValue: string | null = null;
   try {
-    const saved = await bridge.getLocalStorage(STORAGE_KEY_TAP);
-    const ms = Number(saved);
-    if (saved && Number.isFinite(ms) && ms > 0) {
+    console.log('[Persistence] checking bridge for saved data...');
+    initialSavedValue = await bridge.getLocalStorage(STORAGE_KEY_TAP);
+    const ms = Number(initialSavedValue);
+    
+    if (initialSavedValue && Number.isFinite(ms) && ms > 0) {
       appStore.setTapTimestamp(ms);
-      console.log(`[GlassesMain] restored tapTimestamp from storage: ${ms}`);
+      console.log(`[Persistence] SUCCESS: Restored timestamp from bridge: ${ms}`);
+    } else {
+      console.log('[Persistence] No valid saved data found in bridge.');
     }
   } catch (error) {
-    console.warn('[GlassesMain] could not load tapTimestamp from storage', error);
+    console.warn('[Persistence] Check failed', error);
   }
 
-  voidView.attachBridge(bridge);
-  console.log('[GlassesMain] bridge attached to voidView');
-  initHudImages(bridge);
-  console.log('[GlassesMain] hud images initialised');
+  // ── Component Initialisation ──────────────────────────────────────────────
 
+  voidView.attachBridge(bridge);
+  initHudImages(bridge);
   const session = new HudSession(bridge);
   initRenderLoop(session);
   initEventDispatcher(bridge);
-  console.log('[GlassesMain] render loop + event dispatcher ready');
 
-  // Persist tap timestamp whenever it changes
+  // ── Safe Persistence Sync ─────────────────────────────────────────────────
+
+  // Only subscribe to SAVING after we've tried LOADING. 
+  // This prevents us from overwriting bridge data with "undefined" during boot.
   let lastSavedTap = appStore.getState().tapTimestamp;
+  
   appStore.subscribe(() => {
     const { tapTimestamp } = appStore.getState();
-    if (tapTimestamp !== lastSavedTap) {
+    // Safety check: Don't save undefined/NaN to the bridge!
+    if (tapTimestamp && tapTimestamp !== lastSavedTap) {
       lastSavedTap = tapTimestamp;
-      void bridge.setLocalStorage(STORAGE_KEY_TAP, String(tapTimestamp))
-        .then((ok) => {
-          if (!ok) console.warn('[GlassesMain] setLocalStorage returned false');
-        })
-        .catch((err) => console.error('[GlassesMain] setLocalStorage threw', err));
+      console.log('[Persistence] Saving new timestamp to bridge:', tapTimestamp);
+      bridge.setLocalStorage(STORAGE_KEY_TAP, String(tapTimestamp))
+        .catch((err) => console.error('[Persistence] Save failed', err));
     }
   });
 
   // Re-render whenever shared state changes
   appStore.subscribe(scheduleRender);
 
-  // 1-second tick keeps the elapsed clock + death count alive.
-  startTick();
+  // ── Run ───────────────────────────────────────────────────────────────────
 
-  // First paint.
+  startTick();
   console.log('[GlassesMain] triggering first render');
   scheduleRender();
   console.log('[GlassesMain] startup complete');

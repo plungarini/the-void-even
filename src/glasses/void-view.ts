@@ -7,10 +7,9 @@
 import {
 	ImageContainerProperty,
 	OsEventTypeList,
-	type EvenAppBridge,
 	type EvenHubEvent,
 } from '@evenrealities/even_hub_sdk';
-import { appStore, deathsSinceTap } from '../app/store';
+import { appStore } from '../app/store';
 import { HUD_BORDER_RADIUS, HUD_HEIGHT, HUD_WIDTH } from './constants';
 import {
 	DEATHS_IMG_H,
