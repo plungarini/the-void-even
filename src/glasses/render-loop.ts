@@ -1,8 +1,11 @@
 /**
  * Debounced render scheduler. Keeps at most one render in-flight plus one
  * queued so rapid store changes coalesce instead of stacking SDK calls.
+ * After each successful text render, schedules an image update for the
+ * deaths counter canvas image.
  */
 
+import { scheduleImageUpdate } from './hud-images';
 import { voidView } from './void-view';
 import { HudSession } from './session';
 
@@ -38,4 +41,7 @@ async function doRender(): Promise<void> {
 		layout: voidView.layout(),
 		textContents: voidView.contents(),
 	});
+	// After the page exists (createStartUpPage done), push the deaths image.
+	// scheduleImageUpdate has its own concurrency guard and skips redundant sends.
+	await scheduleImageUpdate();
 }

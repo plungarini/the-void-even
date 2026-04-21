@@ -8,6 +8,66 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>The Void</title>
+    <script>
+      (function () {
+        const MAX_LOGS = 100;
+        let isCapturing = false;
+
+        globalThis.__debugLogs = globalThis.__debugLogs || [];
+
+        const formatArg = (value) => {
+          if (value instanceof Error) {
+            return { _type: 'Error', name: value.name, message: value.message, stack: value.stack };
+          }
+          if (value instanceof Response) {
+            return { _type: 'Response', status: value.status, statusText: value.statusText, url: value.url };
+          }
+          if (value !== null && typeof value === 'object') {
+            try { return JSON.parse(JSON.stringify(value)); } catch { return { _type: 'Object', value: String(value) }; }
+          }
+          return value;
+        };
+
+        const formatMessage = (args) => {
+          if (!args.length) return '';
+          const firstArg = args[0];
+          if (firstArg instanceof Error) return firstArg.message || firstArg.name || 'Error';
+          if (typeof firstArg === 'object' && firstArg !== null) {
+            try {
+              const s = JSON.stringify(firstArg);
+              return s.length > 120 ? s.slice(0, 120) + '\u2026' : s;
+            } catch { return String(firstArg); }
+          }
+          return String(firstArg);
+        };
+
+        const capture = (level, args) => {
+          if (isCapturing) return;
+          isCapturing = true;
+          try {
+            const entry = { level, msg: formatMessage(args), ts: Date.now(), details: Array.from(args).map(formatArg) };
+            globalThis.__debugLogs.push(entry);
+            if (globalThis.__debugLogs.length > MAX_LOGS) globalThis.__debugLogs = globalThis.__debugLogs.slice(-MAX_LOGS);
+            if (typeof globalThis.__refreshDebug === 'function') globalThis.__refreshDebug();
+          } finally { isCapturing = false; }
+        };
+
+        const baseLog   = console.log.bind(console);
+        const baseWarn  = console.warn.bind(console);
+        const baseError = console.error.bind(console);
+
+        console.log   = (...args) => { baseLog(...args);   capture('log',   args); };
+        console.warn  = (...args) => { baseWarn(...args);  capture('warn',  args); };
+        console.error = (...args) => { baseError(...args); capture('error', args); };
+
+        globalThis.addEventListener('error', (event) => {
+          capture('error', [`[Uncaught] ${event.message} @ ${event.filename}:${event.lineno}`, event.error]);
+        });
+        globalThis.addEventListener('unhandledrejection', (event) => {
+          capture('error', [`[Promise] ${event.reason?.stack || event.reason || 'Unhandled rejection'}`, event.reason]);
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
