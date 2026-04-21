@@ -56,6 +56,7 @@ export class HudSession {
 	}
 
 	async render(next: HudRenderState): Promise<void> {
+		const start = performance.now();
 		const params = instantiateLayout(next.layout, next.textContents);
 
 		if (!pageCreated) {
@@ -118,6 +119,10 @@ export class HudSession {
 		}
 
 		await this.applyUpgrades(next);
+		const duration = Math.round(performance.now() - start);
+		if (duration > 50) {
+			console.log(`[HudSession] render took ${duration}ms`);
+		}
 	}
 
 	private async applyUpgrades(next: HudRenderState): Promise<void> {

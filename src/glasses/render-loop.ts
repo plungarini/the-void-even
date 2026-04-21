@@ -43,5 +43,5 @@ async function doRender(): Promise<void> {
 	});
 	// After the page exists (createStartUpPage done), push the deaths image.
 	// scheduleImageUpdate has its own concurrency guard and skips redundant sends.
-	scheduleImageUpdate();
+	await scheduleImageUpdate();
 }

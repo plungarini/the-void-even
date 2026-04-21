@@ -1,24 +1,7 @@
 /**
  * The single HUD screen for The Void.
- *
- * Layout (3 text + 2 image containers):
- *   0  shield       — ghost event container: full-screen, isEventCapture:1
- *   1  header       — top bar: clock left, app name right
- *   2  body         — bordered area; text = souls label only (centred)
- *   3  deaths-img   — big bold number, y≈68
- *   4  elapsed-img  — slim timer, y≈209
- *
- * Body pixel geometry — no scrollbar proof:
- *   body y=37, h=251, padding=15, border=1 → inner h = 219 px
- *   font line height ≈ 26 px
- *   7 lines × 26 = 182 px < 219 px  ✓
- *
- *   Line positions (body inner top y=53):
- *     0–3  blank (deaths image occupies y=68..128)
- *     4    "souls entered the void"   y≈157
- *     5–6  blank (elapsed image occupies y=209..254)
- *
- * Single click resets the counter. Double-click exits the app.
+ * 
+ * RESTORED: Full original high-fidelity layout with Headers, Borders, and Shield.
  */
 
 import {
@@ -27,7 +10,7 @@ import {
 	type EvenAppBridge,
 	type EvenHubEvent,
 } from '@evenrealities/even_hub_sdk';
-import { appStore } from '../app/store';
+import { appStore, deathsSinceTap } from '../app/store';
 import { HUD_BORDER_RADIUS, HUD_HEIGHT, HUD_WIDTH } from './constants';
 import {
 	DEATHS_IMG_H,
@@ -63,7 +46,7 @@ const ELAPSED_IMG_X = (HUD_WIDTH - ELAPSED_IMG_W) / 2; // 144
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 const LAYOUT: HudLayoutDescriptor = {
-	key: 'void.v6',
+	key: 'void.v9', // BUMP: Layout restoration
 	textDescriptors: [
 		// Ghost event container: full-screen, sole isEventCapture:1.
 		// Full width required for scroll events. No border/padding → invisible.
@@ -138,9 +121,9 @@ function formatHeaderTime(now: Date): string {
 // ── View ──────────────────────────────────────────────────────────────────────
 
 class VoidView {
-	private bridge: EvenAppBridge | null = null;
+	private bridge: any | null = null;
 
-	attachBridge(bridge: EvenAppBridge): void {
+	attachBridge(bridge: any): void {
 		this.bridge = bridge;
 	}
 

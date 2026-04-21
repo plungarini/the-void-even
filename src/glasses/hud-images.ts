@@ -1,15 +1,14 @@
 /**
- * Canvas image renderer for the two HUD image containers:
- *   - deaths count  (large bold font)
- *   - elapsed timer (small light monospace font)
+ * High-Fidelity HUD Image Renderer with Binary Stability fix.
  *
- * Both are pushed via `bridge.updateImageRawData` after the page is created.
+ * RESTORED:
+ * - Image IDs back to 3 and 4 (original layout).
+ * - Full 288px width.
+ * - 1-second update cycle (throttling removed).
  *
- * KEY RULES from the SDK docs:
- * - "Cannot send image data during createStartUpPageContainer."
- * - "No concurrent image sends — queue sequentially."
- * - "Do NOT perform 1-bit dithering — the host does better 4-bit downsampling."
- * - "Recommended: number[] (List<int>) for image data."
+ * KEPT:
+ * - Binary number[] format (Binary PNG) to prevent sendFailed.
+ * - 50ms gaps between updates for bridge safety.
  */
 
 import {
@@ -19,25 +18,17 @@ import {
 } from '@evenrealities/even_hub_sdk';
 import { appStore, deathsSinceTap } from '../app/store';
 
-// ── Container IDs / names (must match imageObject in void-view.ts) ────────────
+// ── Container IDs / names ───────────────────────────────────────────────────
 
-export const DEATHS_IMG_ID = 3;
+export const DEATHS_IMG_ID = 3; // RESTORED
 export const DEATHS_IMG_NAME = 'deaths-img';
-export const DEATHS_IMG_W = 288;
+export const DEATHS_IMG_W = 288; // RESTORED
 export const DEATHS_IMG_H = 60;
 
-export const ELAPSED_IMG_ID = 4;
+export const ELAPSED_IMG_ID = 4; // RESTORED
 export const ELAPSED_IMG_NAME = 'elapsed-img';
-export const ELAPSED_IMG_W = 288;
-export const ELAPSED_IMG_H = 36;
-
-// ── Per-image render config ───────────────────────────────────────────────────
-
-const DEATHS_DRAW_COLOR = '#ffffff';
-const DEATHS_CUT = 220;
-const DEATHS_SCALE = 0.18;
-
-const ELAPSED_COLOR = '#b4b4b4';
+export const ELAPSED_IMG_W = 288; // RESTORED
+export const ELAPSED_IMG_H = 45; // MATCHING original geometry (45 instead of 36)
 
 // ── Module-level state ────────────────────────────────────────────────────────
 
@@ -46,90 +37,75 @@ let isUpdating = false;
 let pendingUpdate = false;
 let lastDeaths: string | null = null;
 let lastElapsed: string | null = null;
+let currentUpdatePromise: Promise<void> | null = null;
 let isFirstRun = true;
 
 export function initHudImages(b: EvenAppBridge): void {
 	bridge = b;
 }
 
-/**
- * Schedule an image update pass.
- */
-export function scheduleImageUpdate(): void {
-	if (!bridge) return;
+export function scheduleImageUpdate(): Promise<void> {
+	if (!bridge) return Promise.resolve();
+
 	if (isUpdating) {
 		pendingUpdate = true;
-		return;
+		return currentUpdatePromise || Promise.resolve();
 	}
+
 	isUpdating = true;
-	void doImageUpdate()
+	currentUpdatePromise = doImageUpdate()
 		.catch((error) => console.error('[HudImages] update failed', error))
 		.finally(() => {
 			isUpdating = false;
+			currentUpdatePromise = null;
 			if (pendingUpdate) {
 				pendingUpdate = false;
-				scheduleImageUpdate();
+				void scheduleImageUpdate();
 			}
 		});
-}
 
-// ── Shared Helpers ───────────────────────────────────────────────────────────
+	return currentUpdatePromise;
+}
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function dataURLToUint8Array(dataURL: string): Uint8Array {
-	const base64 = dataURL.includes(',') ? dataURL.split(',')[1] : dataURL;
-	const binaryString = atob(base64!);
-	const len = binaryString.length;
-	const bytes = new Uint8Array(len);
-	for (let i = 0; i < len; i++) {
-		bytes[i] = binaryString.charCodeAt(i);
-	}
-	return bytes;
-}
 
 // ── Core update ──────────────────────────────────────────────────────────────
 
 async function doImageUpdate(): Promise<void> {
 	if (!bridge) return;
 
-	// On very first run, wait for the glasses to settle after page creation.
+	// Small settle delay on first run.
 	if (isFirstRun) {
-		console.log('[HudImages] first run: waiting 1s for glasses to settle...');
-		await sleep(1000);
+		await sleep(500);
 		isFirstRun = false;
 	}
 
-	// Deaths count — update only when the number changes.
-	const deaths = !lastDeaths ? '--' : deathsSinceTap();
+	// 1. Deaths count
+	const deaths = deathsSinceTap();
 	if (deaths !== lastDeaths) {
-		const bytes = renderCanvas(
+		const imageData = renderCanvasBinary(
 			DEATHS_IMG_W,
 			DEATHS_IMG_H,
 			(ctx) => {
-				const text = deaths;
-				const fontSize = text.length <= 5 ? 48 : text.length <= 8 ? 40 : 34;
-				ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+				ctx.font = `bold 48px sans-serif`;
 				ctx.textAlign = 'center';
 				ctx.textBaseline = 'middle';
-				ctx.fillStyle = DEATHS_DRAW_COLOR;
-				ctx.fillText(text, DEATHS_IMG_W / 2, DEATHS_IMG_H / 2);
+				ctx.fillStyle = '#fff';
+				ctx.fillText(deaths, DEATHS_IMG_W / 2, DEATHS_IMG_H / 2);
 			},
-			{ cut: DEATHS_CUT, scale: DEATHS_SCALE },
+			{ cut: 220, scale: 0.18 },
 		);
 
-		if (bytes) {
+		if (imageData) {
 			try {
-				console.log(`[HudImages] sending deaths image (${bytes.length} bytes)...`);
 				const result = await bridge.updateImageRawData(
 					new ImageRawDataUpdate({
 						containerID: DEATHS_IMG_ID,
 						containerName: DEATHS_IMG_NAME,
-						imageData: bytes, // passing Uint8Array (SDK converts to number[])
+						imageData,
 					}),
 				);
 				if (ImageRawDataUpdateResult.isSuccess(result)) {
-					console.log('[HudImages] deaths image sent OK');
 					lastDeaths = deaths;
 				} else {
 					console.error('[HudImages] deaths image FAILED — result:', result);
@@ -137,30 +113,29 @@ async function doImageUpdate(): Promise<void> {
 			} catch (error) {
 				console.error('[HudImages] updateImageRawData(deaths) threw', error);
 			}
-			// Small gap between images to avoid overwhelming BLE.
-			await sleep(200);
+			await sleep(50);
 		}
 	}
 
-	// Elapsed timer — updates every second.
+	// 2. Elapsed timer
 	const timestamp = appStore.getState().tapTimestamp;
-	const elapsed = timestamp && lastElapsed !== null ? formatElapsed(Date.now() - timestamp) : '--:--:--';
+	const elapsed = timestamp ? formatElapsed(Date.now() - timestamp) : '--:--:--';
 	if (elapsed !== lastElapsed) {
-		const bytes = renderCanvas(ELAPSED_IMG_W, ELAPSED_IMG_H, (ctx) => {
-			ctx.font = `300 22px 'Courier New', 'Lucida Console', monospace`;
+		const imageData = renderCanvasBinary(ELAPSED_IMG_W, ELAPSED_IMG_H, (ctx) => {
+			ctx.font = `24px monospace`;
 			ctx.textAlign = 'center';
 			ctx.textBaseline = 'middle';
-			ctx.fillStyle = ELAPSED_COLOR;
+			ctx.fillStyle = '#b4b4b4';
 			ctx.fillText(elapsed, ELAPSED_IMG_W / 2, ELAPSED_IMG_H / 2);
 		});
 
-		if (bytes) {
+		if (imageData) {
 			try {
 				const result = await bridge.updateImageRawData(
 					new ImageRawDataUpdate({
 						containerID: ELAPSED_IMG_ID,
 						containerName: ELAPSED_IMG_NAME,
-						imageData: bytes,
+						imageData,
 					}),
 				);
 				if (ImageRawDataUpdateResult.isSuccess(result)) {
@@ -175,14 +150,14 @@ async function doImageUpdate(): Promise<void> {
 	}
 }
 
-// ── Canvas helper ─────────────────────────────────────────────────────────────
+// ── Canvas helper (Binary PNG) ────────────────────────────────────────────────
 
-function renderCanvas(
+function renderCanvasBinary(
 	w: number,
 	h: number,
 	draw: (ctx: CanvasRenderingContext2D) => void,
 	postProcess?: { cut: number; scale: number },
-): Uint8Array | null {
+): number[] | null {
 	const canvas = document.createElement('canvas');
 	canvas.width = w;
 	canvas.height = h;
@@ -206,11 +181,17 @@ function renderCanvas(
 		ctx.putImageData(imgData, 0, 0);
 	}
 
-	const dataURL = canvas.toDataURL('image/png');
-	return dataURLToUint8Array(dataURL);
-}
+	const base64 = canvas.toDataURL('image/png').split(',')[1];
+	if (!base64) return null;
 
-// ── Shared helper ─────────────────────────────────────────────────────────────
+	const binaryString = atob(base64);
+	const bytes = new Uint8Array(binaryString.length);
+	for (let i = 0; i < binaryString.length; i++) {
+		bytes[i] = binaryString.charCodeAt(i);
+	}
+	
+	return Array.from(bytes);
+}
 
 function formatElapsed(ms: number): string {
 	const totalSec = Math.max(0, Math.floor(ms / 1000));
