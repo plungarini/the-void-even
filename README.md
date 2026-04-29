@@ -1,49 +1,49 @@
 # The Void
 
-A memento mori counter for Even Realities G2 glasses. Since you last tapped,
-the world has lost `N` souls. Tap to reset. Watch the void fill again.
+> **Watch absence accumulate.**
 
-## How it works
+A memento-mori counter for the Even Realities Glasses glasses. Every second, people around the world pass away. Tap to reset the counter and witness the void fill again — a quiet, ever-present reminder of life's fragility.
 
-- **Rate source.** On startup the app fetches the World Bank's crude death
-  rate (`SP.DYN.CDRT.IN`) and world population (`SP.POP.TOTL`) indicators
-  and computes deaths-per-second. Cached in memory for 24h. Falls back to a
-  hardcoded 2024 figure (`2.04`/sec) on failure.
-- **State.** Two values — a `tapTimestamp` (reset moment) and the resolved
-  `deathsPerSec` rate. Deaths are computed on the fly as
-  `(now - tap) * deathsPerSec`.
-- **HUD.** One full-screen text container on the glasses. Single click
-  resets the counter. Double-click exits the app (root-page submission rule).
-- **Web UI.** A dark minimal React page mirrors the counter and exposes a
-  tap button that writes to the same shared store.
+## What it does
 
-## Architecture
+The Void fetches the latest global crude death rate and world population from the World Bank open-data API, computes a live deaths-per-second figure, and displays the running total on your G2 glasses. A single tap resets the counter; a double-tap exits the app. A dark, minimal companion web page mirrors the data for easy setup and reflection.
 
-Same split as `smokeless`: a React web UI layer and a pure-TypeScript
-glasses layer talk to the Even Realities SDK directly, sharing state
-through a single in-memory store. No `even-toolkit` on the HUD side.
+## Key Features
 
-```
-src/
-  app/store.ts            — shared state (tap timestamp + deaths/sec)
-  services/death-rate.ts  — World Bank fetch with 24h cache + fallback
-  glasses/
-    session.ts            — SDK wrapper (createStartUpPage/rebuild/upgrade)
-    render-loop.ts        — debounced render scheduler
-    events.ts             — bridge event dispatcher
-    tick.ts               — 1-second render pulse
-    void-view.ts          — the single HUD screen
-    constants.ts, types.ts
-  glasses-main.ts         — pure-TS entry (bridge init, wire everything)
-  main.tsx, App.tsx       — React entry + UI
-```
+- **Live global death counter** — updates every second based on real World Bank statistics (cached 24 h; falls back gracefully to a hardcoded 2024 rate).
+- **One-tap reset** — tap anywhere on the glasses to start the count anew.
+- **Persistent state** — your last tap timestamp survives app restarts via bridge local storage.
+- **High-fidelity HUD** — pixel-accurate layout using `@evenrealities/pretext` and canvas-rendered image containers for jitter-free numbers.
+- **Dual-layer architecture** — React web UI and a pure-TypeScript glasses layer share a single in-memory store; the HUD talks directly to the Even SDK.
 
-## Scripts
+## How it works / User flow
+
+1. **Launch** — the app boots, restores any saved tap timestamp from bridge storage, and fetches the latest death rate in the background.
+2. **Display** — the glasses show a header with the current time, a large running death count, and an elapsed timer since your last tap.
+3. **Interact** — tap once to reset the counter to zero; double-tap to close the app.
+4. **Web UI** — the phone page shows the same counter and a manual reset button, plus a temporary debug panel during development.
+
+## Tech Stack
+
+| Layer           | Tech                                                             |
+| --------------- | ---------------------------------------------------------------- |
+| Language        | TypeScript                                                       |
+| Build tool      | Vite (with custom full-reload plugin for HUD safety)             |
+| Web UI          | React 19                                                         |
+| SDK             | `@evenrealities/even_hub_sdk`                                    |
+| CLI / Simulator | `@evenrealities/evenhub-cli`, `@evenrealities/evenhub-simulator` |
+| Text metrics    | `@evenrealities/pretext`                                         |
+
+## Getting Started
 
 ```bash
-npm run dev       # vite dev server on :5173
-npm run build     # type-check + vite build
-npm run pack      # build + package as the-void.ehpk
-npm run qr        # print a QR code for sideloading
+npm install
+npm run dev       # start Vite dev server on :5173
+npm run qr        # print a QR code for sideloading onto your phone
+npm run pack      # build and package as the-void.ehpk
 npm run emulator  # launch the Even Hub simulator
 ```
+
+## Why it exists
+
+The G2 glasses are a glanceable display — perfect for ambient, low-friction information. The Void turns that glance into a philosophical nudge: a constant, gentle memento mori that needs no unlock, no scroll, and no distraction. It solves the problem of "out of sight, out of mind" by making mortality quietly visible, one second at a time.
